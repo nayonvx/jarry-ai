@@ -129,25 +129,25 @@
 }
 
 :root {
-  --jt-bg: #0d0a14;
-  --jt-bar: rgba(13, 10, 20, 0.8);
-  --jt-code: #17131d;
-  --jt-accent1: #f43f5e;
-  --jt-accent2: #d946ef;
-  --jt-accent1-a14: rgba(244, 63, 94, 0.14);
-  --jt-accent1-a25: rgba(244, 63, 94, 0.25);
-  --jt-accent2-a25: rgba(217, 70, 239, 0.25);
-  --jt-accent1-a40: rgba(244, 63, 94, 0.45);
-  --jt-accent1-tint: #fda4af;
-  --jt-accent2-tint: #f9a8d4;
-  --jt-glow-a: rgba(244, 63, 94, 0.35);
-  --jt-glow-b: rgba(232, 121, 249, 0.5);
-  --jt-glow1: rgba(244, 63, 94, 0.09);
-  --jt-glow2: rgba(217, 70, 239, 0.08);
-  --jt-glow3: rgba(236, 114, 153, 0.06);
+  --jt-bg: #050806;
+  --jt-bar: rgba(5, 8, 6, 0.8);
+  --jt-code: #121412;
+  --jt-accent1: #4ade80;
+  --jt-accent2: #22d3ee;
+  --jt-accent1-a14: rgba(74, 222, 128, 0.14);
+  --jt-accent1-a25: rgba(74, 222, 128, 0.25);
+  --jt-accent2-a25: rgba(34, 211, 238, 0.25);
+  --jt-accent1-a40: rgba(74, 222, 128, 0.45);
+  --jt-accent1-tint: #a5efc0;
+  --jt-accent2-tint: #85e7f6;
+  --jt-glow-a: rgba(74, 222, 128, 0.35);
+  --jt-glow-b: rgba(34, 211, 238, 0.5);
+  --jt-glow1: rgba(74, 222, 128, 0.09);
+  --jt-glow2: rgba(34, 211, 238, 0.08);
+  --jt-glow3: rgba(34, 211, 238, 0.06);
   --jt-font: "Hind Siliguri", ui-sans-serif, system-ui, sans-serif;
   --jt-font-display: "Baloo Da 2", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif;
-  --jt-radius: 16px;
+  --jt-radius: 10px;
 }
 
 .jarry-bg {

@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Jarry 🌸 — তোমার বাংলা AI বন্ধু",
+  title: "Jarry ⚡ — তোমার বাংলা হ্যাকার গার্ল AI",
   description:
-    "জ্যারি — একজন মিষ্টি মেয়ে AI অ্যাসিস্ট্যান্ট। বাংলায় গল্প করো, কোডিং শেখো, সাইবার সিকিউরিটি ও এথিক্যাল হ্যাকিং নিয়ে জানো, আর অনলাইন থেকে সর্বশেষ তথ্য পাও।",
+    "জ্যারি — একজন cool হ্যাকার-টাইপ মেয়ে AI। বাংলায় কথা বলো, কোডিং শেখো, এথিক্যাল হ্যাকিং ও সাইবার সিকিউরিটি নিয়ে জানো, ছবি বানাও, আর অনলাইন থেকে সর্বশেষ তথ্য পাও।",
   keywords: [
     "Jarry",
     "জ্যারি",
@@ -33,15 +33,15 @@ export const metadata: Metadata = {
     apple: "/jarry-avatar.png",
   },
   openGraph: {
-    title: "Jarry 🌸 — তোমার বাংলা AI বন্ধু",
-    description: "বাংলায় কথা বলা AI — কোডিং, সাইবার সিকিউরিটি ও সব প্রশ্নের সঙ্গী",
+    title: "Jarry ⚡ — তোমার বাংলা হ্যাকার গার্ল AI",
+    description: "বাংলায় কথা বলা হ্যাকার গার্ল AI — কোডিং, এথিক্যাল হ্যাকিং ও সব প্রশ্নের সঙ্গী",
     siteName: "Jarry AI",
     type: "website",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0d0a14",
+  themeColor: "#050806",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

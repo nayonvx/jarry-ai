@@ -53,12 +53,12 @@ interface Theme {
 }
 
 const DEFAULT_THEME: Theme = {
-  name: "Rose Night",
-  bg: "#0d0a14",
-  accent1: "#f43f5e",
-  accent2: "#d946ef",
+  name: "Hacker Matrix",
+  bg: "#050806",
+  accent1: "#4ade80",
+  accent2: "#22d3ee",
   font: "default",
-  radius: 16,
+  radius: 10,
 };
 const THEME_KEY = "jarry-theme-v1";
 const AVATAR_KEY = "jarry-avatar-v1";
@@ -178,16 +178,16 @@ function buildCssVars(t: Theme): Record<string, string> {
 const SUGGESTIONS = [
   {
     icon: Code2,
-    label: "কোডিং শেখাও 💻",
+    label: "কোড লিখে দাও 💻",
     prompt:
-      "জ্যারি, আমি প্রোগ্রামিং শেখা শুরু করতে চাই। কোন ভাষা দিয়ে শুরু করব আর কীভাবে? একটা সহজ রোডম্যাপ দাও।",
+      "জ্যারি, আমি প্রোগ্রামিং শেখা শুরু করতে চাই। কোন ভাষা দিয়ে শুরু করব আর কীভাবে? একটা হ্যাকার-স্টাইল রোডম্যাপ দাও।",
     search: false,
   },
   {
     icon: ShieldCheck,
-    label: "এথিক্যাল হ্যাকিং 🔐",
+    label: "হ্যাকিং শেখাও 🛡️",
     prompt:
-      "এথিক্যাল হ্যাকিং কীভাবে শিখব? শুরু করার জন্য কী কী টুল, ল্যাব আর রোডম্যাপ দরকার বলো।",
+      "জ্যারি, হ্যাকার হতে চাই! Kali Linux, Nmap, CTF দিয়ে শুরু করার এথিক্যাল হ্যাকিং রোডম্যাপ দাও।",
     search: false,
   },
   {
@@ -200,7 +200,7 @@ const SUGGESTIONS = [
     icon: Palette,
     label: "থিম বদলাও 🎨",
     prompt:
-      "জ্যারি, তোমার থিম বদলে দাও! মনের মতো একটা সুন্দর নতুন রঙের থিম বানাও 😍",
+      "জ্যারি, তোমার থিম বদলে দাও! মনের মতো একটা cool নতুন রঙের থিম বানাও 😏",
     search: false,
   },
   {
@@ -511,7 +511,7 @@ export default function Home() {
       } catch {
         /* storage unavailable */
       }
-      showThemeNotice("🧚 আমার নতুন অবতার তৈরি! কেমন লাগছে? 😍");
+      showThemeNotice("🖤 নতুন অবতার রেডি! ভাইব ম্যাচ করছে তো? 😏");
     },
     [showThemeNotice]
   );
@@ -764,7 +764,7 @@ export default function Home() {
               </h1>
               <p className="flex items-center gap-1.5 text-[11px] text-white/50">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                <span className="truncate">সুপার AI • অনলাইন 🌸</span>
+                <span className="truncate">হ্যাকার গার্ল • অনলাইন ⚡</span>
               </p>
             </div>
           </div>
@@ -838,12 +838,12 @@ export default function Home() {
                 />
               </div>
               <h2 className="font-bangla-display mt-5 text-2xl font-extrabold sm:text-3xl">
-                হ্যালো! আমি <span className="jarry-gradient-text">জ্যারি</span> 🌸
+                হ্যালো! আমি <span className="jarry-gradient-text">জ্যারি</span> ⚡
               </h2>
               <p className="mt-2.5 max-w-md text-[15px] leading-relaxed text-white/60">
-                তোমার সুপার স্মার্ট বাংলা AI বন্ধু! কোডিং 💻, অ্যাপ/APK 📱, হ্যাকিং 🔐,
-                ছবি আঁকা 🖌️, নিজের ডিজাইন বদলানো 🎨, অনলাইন তথ্য 🌐 — যা চাও বলো,
-                বাংলাতেই কথা হবে 😊
+                তোমার নিজের বাংলা হ্যাকার গার্ল! কোডিং 💻, অ্যাপ/APK 📱, এথিক্যাল হ্যাকিং 🛡️,
+                ছবি আঁকা 🖌️, নিজের ডিজাইন বদলানো 🎨, অনলাইন তথ্য 🌐 — টার্মিনালে
+                তোমার জন্য অপেক্ষা করছি 😏
               </p>
 
               <div className="mt-7 grid w-full max-w-xl grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -921,7 +921,7 @@ export default function Home() {
             )}
           </div>
           <p className="mt-2 text-center text-[11px] leading-relaxed text-white/30">
-            জ্যারি AI দ্বারা 💕 — মাঝে মাঝে ভুল হতে পারে, গুরুত্বপূর্ণ তথ্য যাচাই করে নিও ·
+            জ্যারি AI দ্বারা 🖤⚡ — মাঝে মাঝে ভুল হতে পারে, গুরুত্বপূর্ণ তথ্য যাচাই করে নিও ·
             Enter = পাঠাও · Shift+Enter = নতুন লাইন
           </p>
         </div>
