@@ -6,6 +6,7 @@ import Markdown, { type Components } from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import {
+  Brush,
   Check,
   Code2,
   Copy,
@@ -14,9 +15,9 @@ import {
   Palette,
   Send,
   ShieldCheck,
-  Sparkles,
   Square,
   Trash2,
+  Wand2,
 } from "lucide-react";
 
 interface Source {
@@ -33,16 +34,22 @@ interface Msg {
   content: string;
   time: number;
   sources?: Source[];
+  images?: string[];
+  imgPending?: boolean;
   error?: boolean;
 }
 
 const STORAGE_KEY = "jarry-chat-v1";
+
+type FontKey = "default" | "round" | "serif" | "fancy";
 
 interface Theme {
   name: string;
   bg: string;
   accent1: string;
   accent2: string;
+  font: FontKey;
+  radius: number;
 }
 
 const DEFAULT_THEME: Theme = {
@@ -50,8 +57,28 @@ const DEFAULT_THEME: Theme = {
   bg: "#0d0a14",
   accent1: "#f43f5e",
   accent2: "#d946ef",
+  font: "default",
+  radius: 16,
 };
 const THEME_KEY = "jarry-theme-v1";
+const AVATAR_KEY = "jarry-avatar-v1";
+const DEFAULT_AVATAR = "/jarry-avatar.png";
+
+const FONT_KEYS: FontKey[] = ["default", "round", "serif", "fancy"];
+
+const FONT_BODY: Record<FontKey, string> = {
+  default: '"Hind Siliguri", ui-sans-serif, system-ui, sans-serif',
+  round: '"Baloo Da 2", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif',
+  serif: '"Noto Serif Bengali", "Hind Siliguri", serif',
+  fancy: '"Galada", "Hind Siliguri", cursive',
+};
+
+const FONT_DISPLAY: Record<FontKey, string> = {
+  default: '"Baloo Da 2", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif',
+  round: '"Baloo Da 2", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif',
+  serif: '"Noto Serif Bengali", "Hind Siliguri", serif',
+  fancy: '"Galada", "Hind Siliguri", cursive',
+};
 
 /* ---------- Color utilities ---------- */
 
@@ -85,17 +112,32 @@ function clampHex(value: unknown, fallback: string): string {
   return `#${s}`;
 }
 
-function sanitizeTheme(raw: unknown): Theme {
+function clampRadius(v: unknown, fallback: number): number {
+  const n = typeof v === "string" ? parseFloat(v) : v;
+  if (typeof n !== "number" || Number.isNaN(n)) return fallback;
+  return Math.round(Math.min(28, Math.max(8, n)));
+}
+
+function sanitizeTheme(raw: unknown, prev?: Theme): Theme {
   const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const base = prev ?? DEFAULT_THEME;
   const name =
     typeof obj.name === "string" && obj.name.trim()
       ? obj.name.trim().slice(0, 40)
-      : "নতুন থিম";
+      : base.name;
+  const font =
+    typeof obj.font === "string" && FONT_KEYS.includes(obj.font as FontKey)
+      ? (obj.font as FontKey)
+      : base.font;
   return {
     name,
-    bg: clampHex(obj.bg, DEFAULT_THEME.bg),
-    accent1: clampHex(obj.accent1, DEFAULT_THEME.accent1),
-    accent2: clampHex(obj.accent2, DEFAULT_THEME.accent2),
+    bg: obj.bg !== undefined ? clampHex(obj.bg, base.bg) : base.bg,
+    accent1:
+      obj.accent1 !== undefined ? clampHex(obj.accent1, base.accent1) : base.accent1,
+    accent2:
+      obj.accent2 !== undefined ? clampHex(obj.accent2, base.accent2) : base.accent2,
+    font,
+    radius: obj.radius !== undefined ? clampRadius(obj.radius, base.radius) : base.radius,
   };
 }
 
@@ -122,6 +164,9 @@ function buildCssVars(t: Theme): Record<string, string> {
     "--jt-glow1": rgba(a1, 0.09),
     "--jt-glow2": rgba(a2, 0.08),
     "--jt-glow3": rgba(a2, 0.06),
+    "--jt-font": FONT_BODY[t.font] ?? FONT_BODY.default,
+    "--jt-font-display": FONT_DISPLAY[t.font] ?? FONT_DISPLAY.default,
+    "--jt-radius": `${t.radius}px`,
   };
 }
 
@@ -147,17 +192,24 @@ const SUGGESTIONS = [
     search: true,
   },
   {
-    icon: Sparkles,
-    label: "পাসওয়ার্ড সিকিউরিটি 🛡️",
-    prompt:
-      "পাসওয়ার্ড আর অ্যাকাউন্ট সিকিউর রাখার সেরা টিপসগুলো বলো।",
-    search: false,
-  },
-  {
     icon: Palette,
     label: "থিম বদলাও 🎨",
     prompt:
       "জ্যারি, তোমার থিম বদলে দাও! মনের মতো একটা সুন্দর নতুন রঙের থিম বানাও 😍",
+    search: false,
+  },
+  {
+    icon: Brush,
+    label: "ছবি আঁকো 🖌️",
+    prompt:
+      "জ্যারি, আমার জন্য একটা সুন্দর ছবি আঁকো — সূর্যাস্তের সময় নদীর ধারে নৌকা 🌅",
+    search: false,
+  },
+  {
+    icon: Wand2,
+    label: "নতুন লুক 🧚",
+    prompt:
+      "জ্যারি, তোমার থিম, ফন্ট আর অবতার সব নিজে বদলে ফেলো — একদম নতুন নিজেকে বানাও!",
     search: false,
   },
 ];
@@ -246,7 +298,15 @@ const mdComponents: Components = {
   },
 };
 
-function MessageBubble({ msg, streaming }: { msg: Msg; streaming?: boolean }) {
+function MessageBubble({
+  msg,
+  streaming,
+  avatarUrl,
+}: {
+  msg: Msg;
+  streaming?: boolean;
+  avatarUrl?: string | null;
+}) {
   const [copied, setCopied] = useState(false);
   const isUser = msg.role === "user";
 
@@ -264,7 +324,7 @@ function MessageBubble({ msg, streaming }: { msg: Msg; streaming?: boolean }) {
     return (
       <div className="jarry-fade-up flex justify-end">
         <div className="max-w-[85%] sm:max-w-[75%]">
-          <div className="jt-accent-bg rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] leading-relaxed text-white shadow-lg shadow-black/40">
+          <div className="jt-accent-bg jarry-bubble-user px-4 py-2.5 text-[15px] leading-relaxed text-white shadow-lg shadow-black/40">
             <p className="whitespace-pre-wrap break-words">{msg.content}</p>
           </div>
           <p className="mt-1 text-right text-[10px] text-white/35">
@@ -278,15 +338,16 @@ function MessageBubble({ msg, streaming }: { msg: Msg; streaming?: boolean }) {
   return (
     <div className="jarry-fade-up flex gap-2.5">
       <Image
-        src="/jarry-avatar.png"
+        src={avatarUrl || DEFAULT_AVATAR}
         alt="Jarry AI"
         width={32}
         height={32}
-        className="jt-ring mt-1 h-8 w-8 shrink-0 rounded-full"
+        unoptimized
+        className="jt-ring mt-1 h-8 w-8 shrink-0 rounded-full object-cover"
       />
       <div className="min-w-0 max-w-[88%] sm:max-w-[80%]">
         <div
-          className={`jarry-glass rounded-2xl rounded-tl-md px-4 py-3 ${
+          className={`jarry-glass jarry-bubble-ai px-4 py-3 ${
             msg.error ? "jt-error-border" : ""
           }`}
         >
@@ -302,6 +363,34 @@ function MessageBubble({ msg, streaming }: { msg: Msg; streaming?: boolean }) {
               <span className="jarry-dot jt-dot-3 h-2 w-2 rounded-full" />
             </div>
           ) : null}
+
+          {msg.imgPending && (
+            <div className="jarry-shimmer mt-2 flex h-44 items-center justify-center rounded-xl border border-white/10 text-sm text-white/50">
+              🖌️ ছবি আঁকছি, একটু অপেক্ষা...
+            </div>
+          )}
+          {msg.images && msg.images.length > 0 && (
+            <div className="mt-2 grid gap-2">
+              {msg.images.map((url) => (
+                <a
+                  key={url}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="বড় করে দেখো"
+                >
+                  <Image
+                    src={url}
+                    alt="জ্যারির আঁকা ছবি"
+                    width={1024}
+                    height={1024}
+                    unoptimized
+                    className="jarry-img h-auto w-full"
+                  />
+                </a>
+              ))}
+            </div>
+          )}
         </div>
 
         {msg.sources && msg.sources.length > 0 && (
@@ -346,6 +435,7 @@ export default function Home() {
   const [webSearch, setWebSearch] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [themeNotice, setThemeNotice] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -371,6 +461,12 @@ export default function Home() {
     }
     setTheme(t);
     applyCssVars(t);
+    try {
+      const a = localStorage.getItem(AVATAR_KEY);
+      if (a && a.startsWith("/generated/")) setAvatarUrl(a);
+    } catch {
+      /* ignore */
+    }
   }, [applyCssVars]);
 
   // Re-apply + persist on theme change
@@ -391,16 +487,39 @@ export default function Home() {
 
   const handleThemeEvent = useCallback(
     (raw: unknown) => {
-      const t = sanitizeTheme(raw);
-      setTheme(t);
-      showThemeNotice(`🎨 নতুন থিম: ${t.name}`);
+      setTheme((prev) => sanitizeTheme(raw, prev));
+      const name =
+        raw && typeof raw === "object" && typeof (raw as { name?: unknown }).name === "string"
+          ? ((raw as { name: string }).name as string).slice(0, 40)
+          : "নতুন থিম";
+      showThemeNotice(`🎨 নতুন থিম: ${name}`);
+    },
+    [showThemeNotice]
+  );
+
+  const handleAvatarEvent = useCallback(
+    (url: unknown) => {
+      if (typeof url !== "string" || !url.startsWith("/generated/")) return;
+      setAvatarUrl(url);
+      try {
+        localStorage.setItem(AVATAR_KEY, url);
+      } catch {
+        /* storage unavailable */
+      }
+      showThemeNotice("🧚 আমার নতুন অবতার তৈরি! কেমন লাগছে? 😍");
     },
     [showThemeNotice]
   );
 
   const resetTheme = () => {
     setTheme(DEFAULT_THEME);
-    showThemeNotice("🎨 থিম রিসেট হয়েছে — Rose Night");
+    setAvatarUrl(null);
+    try {
+      localStorage.removeItem(AVATAR_KEY);
+    } catch {
+      /* ignore */
+    }
+    showThemeNotice("🎨 ডিজাইন রিসেট — Rose Night");
   };
 
   // Load saved history
@@ -478,6 +597,7 @@ export default function Home() {
           body: JSON.stringify({
             messages: history.map((m) => ({ role: m.role, content: m.content })),
             webSearch: useSearch,
+            theme,
           }),
           signal: ctrl.signal,
         });
@@ -515,6 +635,37 @@ export default function Home() {
                 );
               } else if (evt.type === "theme") {
                 handleThemeEvent(evt.theme);
+              } else if (evt.type === "image_pending") {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === aiId ? { ...m, imgPending: true } : m
+                  )
+                );
+              } else if (evt.type === "image") {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === aiId
+                      ? {
+                          ...m,
+                          imgPending: false,
+                          images: [...(m.images || []), evt.url],
+                        }
+                      : m
+                  )
+                );
+              } else if (evt.type === "image_error") {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === aiId ? { ...m, imgPending: false } : m
+                  )
+                );
+                showThemeNotice("😔 ছবি আঁকা গেল না, আবার চেষ্টা করো!");
+              } else if (evt.type === "avatar_pending") {
+                showThemeNotice("🧚 নতুন অবতার আঁকছি, একটু অপেক্ষা...");
+              } else if (evt.type === "avatar") {
+                handleAvatarEvent(evt.url);
+              } else if (evt.type === "avatar_error") {
+                showThemeNotice("😔 অবতার আঁকা গেল না, আবার চেষ্টা করো!");
               } else if (evt.type === "error") {
                 setMessages((prev) =>
                   prev.map((m) =>
@@ -561,7 +712,7 @@ export default function Home() {
         abortRef.current = null;
       }
     },
-    [input, busy, messages, webSearch, handleThemeEvent]
+    [input, busy, messages, webSearch, theme, handleThemeEvent, handleAvatarEvent, showThemeNotice]
   );
 
   const stop = () => abortRef.current?.abort();
@@ -593,11 +744,12 @@ export default function Home() {
           <div className="flex min-w-0 items-center gap-3">
             <div className="jarry-avatar-glow shrink-0 rounded-full">
               <Image
-                src="/jarry-avatar.png"
+                src={avatarUrl || DEFAULT_AVATAR}
                 alt="Jarry AI avatar"
                 width={42}
                 height={42}
                 priority
+                unoptimized
                 className="jt-ring h-[42px] w-[42px] rounded-full object-cover"
               />
             </div>
@@ -607,7 +759,7 @@ export default function Home() {
               </h1>
               <p className="flex items-center gap-1.5 text-[11px] text-white/50">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                <span className="truncate">অনলাইন • তোমার বাংলা AI বন্ধু 🌸</span>
+                <span className="truncate">সুপার AI • অনলাইন 🌸</span>
               </p>
             </div>
           </div>
@@ -631,8 +783,8 @@ export default function Home() {
             <button
               onClick={resetTheme}
               type="button"
-              title="থিম রিসেট করো"
-              aria-label="থিম রিসেট করো"
+              title="ডিজাইন রিসেট করো"
+              aria-label="ডিজাইন রিসেট করো"
               className="jarry-glass jt-hover-accent flex h-9 w-9 items-center justify-center rounded-full text-white/60"
             >
               <Palette className="h-4 w-4" />
@@ -671,11 +823,12 @@ export default function Home() {
             <div className="jarry-fade-up flex flex-col items-center pt-8 text-center sm:pt-12">
               <div className="jarry-avatar-glow rounded-full">
                 <Image
-                  src="/jarry-avatar.png"
+                  src={avatarUrl || DEFAULT_AVATAR}
                   alt="Jarry AI"
                   width={112}
                   height={112}
                   priority
+                  unoptimized
                   className="jt-ring h-24 w-24 rounded-full object-cover sm:h-28 sm:w-28"
                 />
               </div>
@@ -683,8 +836,9 @@ export default function Home() {
                 হ্যালো! আমি <span className="jarry-gradient-text">জ্যারি</span> 🌸
               </h2>
               <p className="mt-2.5 max-w-md text-[15px] leading-relaxed text-white/60">
-                তোমার বাংলা AI বন্ধু! কোডিং 💻, সাইবার সিকিউরিটি 🔐, অনলাইন তথ্য 🌐 —
-                যা জানতে চাও, বলো। বাংলাতেই কথা হবে 😊
+                তোমার সুপার স্মার্ট বাংলা AI বন্ধু! কোডিং 💻, অ্যাপ/APK 📱, হ্যাকিং 🔐,
+                ছবি আঁকা 🖌️, নিজের ডিজাইন বদলানো 🎨, অনলাইন তথ্য 🌐 — যা চাও বলো,
+                বাংলাতেই কথা হবে 😊
               </p>
 
               <div className="mt-7 grid w-full max-w-xl grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -693,7 +847,7 @@ export default function Home() {
                     key={s.label}
                     onClick={() => send(s.prompt, { search: s.search })}
                     type="button"
-                    className="jarry-glass group flex items-center gap-3 rounded-xl px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.07]"
+                    className="jarry-glass jt-radius group flex items-center gap-3 px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.07]"
                   >
                     <span className="jt-icon-chip flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition group-hover:scale-110">
                       <s.icon className="h-[18px] w-[18px]" />
@@ -716,6 +870,7 @@ export default function Home() {
                 key={m.id}
                 msg={m}
                 streaming={busy && m.role === "assistant" && i === messages.length - 1}
+                avatarUrl={avatarUrl}
               />
             ))
           )}
@@ -725,7 +880,7 @@ export default function Home() {
       {/* Input area */}
       <footer className="jt-bar border-t border-white/10 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
         <div className="mx-auto w-full max-w-3xl px-3 py-3 sm:px-4">
-          <div className="jarry-glass jt-focus-within flex items-end gap-2 rounded-2xl p-2 transition">
+          <div className="jarry-glass jt-radius jt-focus-within flex items-end gap-2 p-2 transition">
             <textarea
               ref={taRef}
               value={input}

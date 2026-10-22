@@ -38,3 +38,25 @@ Stage Summary:
 - Feature complete: user can say any theme request in Banglish/Bengali and Jarry re-colors the entire app live (bg, buttons, bubbles, gradients, glows, scrollbar, code blocks), theme persists across reloads, manual reset available
 - Theme sanitizer guards readability (dark bg enforced) and validity (hex-clamped with fallbacks) on both server and client
 
+---
+Task ID: 3
+Agent: Main Agent (Z.ai)
+Task: "Super AI Jarry" upgrade — full self-redesign (colors+font+radius+own avatar), in-chat image generation, APK/all-coding/hacking knowledge expansion, automatic online search even when toggle is off
+
+Work Log:
+- route.ts: generalized streaming tag splitter makeTagSplitter (theme/image/avatar, case-insensitive, partial-prefix hold-back, dangling-tag drop on flush, max 2 media per message)
+- route.ts: added image generation via zai.images.generations.create (1024x1024) → saved to public/generated/jarry-*.png, served at /generated/...; new SSE events: image_pending/image/image_error/avatar_pending/avatar/avatar_error
+- route.ts: theme tag protocol extended with font ("default"|"round"|"serif"|"fancy") + radius (8-28); server merges against client's current design (sent in request body) so partial changes keep untouched values; parseDesignInput/normRadius/normFont sanitizers
+- route.ts: system prompt upgraded — "সুপার ইন্টেলিজেন্ট" persona, APK/app development section (full project code + gradle + build steps, honest "can't attach .apk" framing), omniscient knowledge clause (official+unofficial, safety rules kept), image gen rules (detailed English prompt), avatar gen rules, current-design injection {DESIGN} + date {DATE}
+- route.ts: auto-search when toggle off via shouldAutoSearch (fresh-info keyword heuristics); search pipeline now: toSearchQuery() LLM call converts Bangla/Banglish question to short English query (better recall) → web_search → retry with original Bangla text if 422/no results; recency detection kept
+- globals.css: --jt-font/--jt-font-display/--jt-radius CSS vars; body uses var(--jt-font); .font-bangla-display uses var(--jt-font-display); .jarry-bubble-user/.jarry-bubble-ai/.jt-radius classes; .jarry-img + .jarry-shimmer (loading placeholder) styles
+- layout.tsx: added Noto Serif Bengali + Galada to Google Fonts link for serif/fancy theme fonts
+- page.tsx: FontKey type + FONT_BODY/FONT_DISPLAY maps; Theme extended (font, radius) with clampRadius + merge-capable sanitizeTheme(raw, prev); buildCssVars sets font/display/radius vars; avatarUrl state (localStorage jarry-avatar-v1, /generated/ validation) used in header/bubbles/empty-state; image message rendering (next/image unoptimized, click-to-open) + imgPending shimmer; new SSE event handling for image/avatar; send() body includes theme; design reset button clears theme+font+radius+avatar; suggestions updated (ছবি আঁকো 🖌️, নতুন লুক 🧚 chips, password chip dropped); "সুপার AI • অনলাইন" header subtitle
+- Debug: dev server served stale compiled CSS after globals.css edits (body font var not applying) — fixed by killing `next dev` and restarting with clean .next
+- E2E (Agent Browser): image gen (sunset river boat PNG rendered in bubble, HTTP 200, Bengali intro), emerald theme + round font + radius 18 + self-generated avatar all applied & persisted; auto-search with toggle OFF returned live BTC prices (~$82k) with 6 source chips (coinmarketcap/yahoo/coindesk/robinhood/bitflyer/tradingview) — after LLM query translation fixed the earlier Bangla-query 422 (no-results) failure; design reset restores Rose Night/default font/default avatar; zero raw-tag leakage; zero console/page errors; mobile 390x844 OK; Banglish coding question returns highlighted code; lint 0 errors
+
+Stage Summary:
+- Jarry is now a "Super AI": she can redraw her entire look on command (colors, fonts, corner radius, even regenerate her own avatar via image model), draw user-requested pictures inside chat, answer with live web data automatically (no toggle needed for fresh-info questions), and cover coding/APK/cybersecurity topics with ethical guardrails
+- All self-modification state persists across reloads (jarry-theme-v1, jarry-avatar-v1); media files persist in public/generated/
+- Screenshots saved: download/jarry-super-ai-desktop.png, jarry-super-ai-mobile.png, jarry-generated-image.png
+

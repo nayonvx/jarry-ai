@@ -118,14 +118,14 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: "Hind Siliguri", var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--jt-font, "Hind Siliguri"), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   }
 }
 
 /* ===== Jarry Theme (dynamic — CSS vars set from JS) ===== */
 
 .font-bangla-display {
-  font-family: "Baloo Da 2", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--jt-font-display, "Baloo Da 2", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif);
 }
 
 :root {
@@ -145,6 +145,9 @@
   --jt-glow1: rgba(244, 63, 94, 0.09);
   --jt-glow2: rgba(217, 70, 239, 0.08);
   --jt-glow3: rgba(236, 114, 153, 0.06);
+  --jt-font: "Hind Siliguri", ui-sans-serif, system-ui, sans-serif;
+  --jt-font-display: "Baloo Da 2", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif;
+  --jt-radius: 16px;
 }
 
 .jarry-bg {
@@ -170,6 +173,18 @@
 }
 
 /* Theme-aware helper classes */
+.jarry-bubble-user {
+  border-radius: var(--jt-radius) var(--jt-radius) 6px var(--jt-radius);
+  transition: border-radius 0.5s ease;
+}
+.jarry-bubble-ai {
+  border-radius: var(--jt-radius) var(--jt-radius) var(--jt-radius) 6px;
+  transition: border-radius 0.5s ease;
+}
+.jt-radius {
+  border-radius: var(--jt-radius);
+  transition: border-radius 0.5s ease;
+}
 .jt-bar {
   background-color: var(--jt-bar);
 }
@@ -235,6 +250,28 @@
 }
 .jarry-scroll::-webkit-scrollbar-thumb:hover {
   background: var(--jt-accent1-a40);
+}
+
+/* Generated images inside chat */
+.jarry-img {
+  border-radius: calc(var(--jt-radius) - 4px);
+}
+
+.jarry-shimmer {
+  background: linear-gradient(
+    110deg,
+    rgba(255, 255, 255, 0.04) 30%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.04) 70%
+  );
+  background-size: 200% 100%;
+  animation: jarry-shimmer 1.6s infinite linear;
+}
+
+@keyframes jarry-shimmer {
+  to {
+    background-position: -200% 0;
+  }
 }
 
 /* Animations */
