@@ -1,9 +1,38 @@
 import ZAI from "z-ai-web-dev-sdk";
 import { promises as fs } from "fs";
+import os from "os";
 import path from "path";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+// Vercel Hobby plan allows max 60s for serverless functions
+export const maxDuration = 60;
+
+/* ---------- ZAI client: env-var first (Vercel), config file fallback (local dev) ---------- */
+
+type ZAIClient = Awaited<ReturnType<typeof ZAI.create>>;
+
+let zaiClient: ZAIClient | null = null;
+
+async function getZAI(): Promise<ZAIClient> {
+  if (zaiClient) return zaiClient;
+  const { ZAI_BASE_URL, ZAI_API_KEY } = process.env;
+  if (ZAI_BASE_URL && ZAI_API_KEY) {
+    // Production (e.g. Vercel): build the client directly from env vars.
+    // The SDK constructor is private in typings but works at runtime.
+    const Ctor = ZAI as unknown as new (cfg: {
+      baseUrl: string;
+      apiKey: string;
+    }) => ZAIClient;
+    zaiClient = new Ctor({
+      baseUrl: ZAI_BASE_URL.replace(/\/+$/, ""),
+      apiKey: ZAI_API_KEY,
+    });
+  } else {
+    // Local dev: falls back to .z-ai-config file lookup
+    zaiClient = await ZAI.create();
+  }
+  return zaiClient;
+}
 
 interface ChatMsg {
   role: "user" | "assistant" | "system";
@@ -313,7 +342,7 @@ const IMG_SIZES = new Set([
 ]);
 
 async function generateImage(
-  zai: Awaited<ReturnType<typeof ZAI.create>>,
+  zai: ZAIClient,
   rawPrompt: string,
   size = "1024x1024"
 ): Promise<string | null> {
@@ -325,11 +354,16 @@ async function generateImage(
     const b64 = res?.data?.[0]?.base64;
     if (!b64 || typeof b64 !== "string") return null;
 
-    const dir = path.join(process.cwd(), "public", "generated");
+    // Vercel serverless FS is read-only (except /tmp) → serve via /api/media.
+    // Local dev keeps the persistent public/generated folder.
+    const onVercel = Boolean(process.env.VERCEL);
+    const dir = onVercel
+      ? path.join(os.tmpdir(), "jarry-generated")
+      : path.join(process.cwd(), "public", "generated");
     await fs.mkdir(dir, { recursive: true });
     const name = `jarry-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
     await fs.writeFile(path.join(dir, name), Buffer.from(b64, "base64"));
-    return `/generated/${name}`;
+    return onVercel ? `/api/media/${name}` : `/generated/${name}`;
   } catch (err) {
     console.error("Image generation failed:", err);
     return null;
@@ -347,7 +381,7 @@ type TagName = (typeof TAG_NAMES)[number];
 
 interface SplitterDeps {
   send: (obj: Record<string, unknown>) => void;
-  zai: Awaited<ReturnType<typeof ZAI.create>>;
+  zai: ZAIClient;
   currentDesign: DesignSpec;
   jobs: Promise<unknown>[];
 }
@@ -457,7 +491,7 @@ function makeTagSplitter(deps: SplitterDeps) {
 }
 
 export async function POST(req: Request) {
-  let zai: Awaited<ReturnType<typeof ZAI.create>> | null = null;
+  let zai: ZAIClient | null = null;
   try {
     const body = await req.json();
     const messages: ChatMsg[] = Array.isArray(body?.messages) ? body.messages : [];
@@ -476,7 +510,7 @@ export async function POST(req: Request) {
     const history = messages.slice(-20);
     const userQuery = lastMsg.content.trim();
 
-    zai = await ZAI.create();
+    zai = await getZAI();
 
     // Auto search: fetch fresh info even when the toggle is off
     const autoSearch = !webSearch && shouldAutoSearch(userQuery);

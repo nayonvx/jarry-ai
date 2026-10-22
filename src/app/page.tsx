@@ -64,6 +64,11 @@ const THEME_KEY = "jarry-theme-v1";
 const AVATAR_KEY = "jarry-avatar-v1";
 const DEFAULT_AVATAR = "/jarry-avatar.png";
 
+/* AI-generated media URLs: local dev serves /generated/...,
+   Vercel serves /api/media/... — accept both everywhere */
+const isGenUrl = (u: string) =>
+  u.startsWith("/generated/") || u.startsWith("/api/media/");
+
 const FONT_KEYS: FontKey[] = ["default", "round", "serif", "fancy"];
 
 const FONT_BODY: Record<FontKey, string> = {
@@ -463,7 +468,7 @@ export default function Home() {
     applyCssVars(t);
     try {
       const a = localStorage.getItem(AVATAR_KEY);
-      if (a && a.startsWith("/generated/")) setAvatarUrl(a);
+      if (a && isGenUrl(a)) setAvatarUrl(a);
     } catch {
       /* ignore */
     }
@@ -499,7 +504,7 @@ export default function Home() {
 
   const handleAvatarEvent = useCallback(
     (url: unknown) => {
-      if (typeof url !== "string" || !url.startsWith("/generated/")) return;
+      if (typeof url !== "string" || !isGenUrl(url)) return;
       setAvatarUrl(url);
       try {
         localStorage.setItem(AVATAR_KEY, url);
