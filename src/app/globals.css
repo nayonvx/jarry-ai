@@ -122,18 +122,38 @@
   }
 }
 
-/* ===== Jarry Theme ===== */
+/* ===== Jarry Theme (dynamic — CSS vars set from JS) ===== */
 
 .font-bangla-display {
   font-family: "Baloo Da 2", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif;
 }
 
+:root {
+  --jt-bg: #0d0a14;
+  --jt-bar: rgba(13, 10, 20, 0.8);
+  --jt-code: #17131d;
+  --jt-accent1: #f43f5e;
+  --jt-accent2: #d946ef;
+  --jt-accent1-a14: rgba(244, 63, 94, 0.14);
+  --jt-accent1-a25: rgba(244, 63, 94, 0.25);
+  --jt-accent2-a25: rgba(217, 70, 239, 0.25);
+  --jt-accent1-a40: rgba(244, 63, 94, 0.45);
+  --jt-accent1-tint: #fda4af;
+  --jt-accent2-tint: #f9a8d4;
+  --jt-glow-a: rgba(244, 63, 94, 0.35);
+  --jt-glow-b: rgba(232, 121, 249, 0.5);
+  --jt-glow1: rgba(244, 63, 94, 0.09);
+  --jt-glow2: rgba(217, 70, 239, 0.08);
+  --jt-glow3: rgba(236, 114, 153, 0.06);
+}
+
 .jarry-bg {
-  background-color: #0d0a14;
+  background-color: var(--jt-bg);
   background-image:
-    radial-gradient(ellipse 60% 40% at 15% 0%, rgba(244, 63, 94, 0.09), transparent),
-    radial-gradient(ellipse 50% 40% at 90% 10%, rgba(217, 70, 239, 0.08), transparent),
-    radial-gradient(ellipse 70% 50% at 50% 110%, rgba(236, 72, 153, 0.06), transparent);
+    radial-gradient(ellipse 60% 40% at 15% 0%, var(--jt-glow1), transparent),
+    radial-gradient(ellipse 50% 40% at 90% 10%, var(--jt-glow2), transparent),
+    radial-gradient(ellipse 70% 50% at 50% 110%, var(--jt-glow3), transparent);
+  transition: background-color 0.6s ease, background-image 0.6s ease;
 }
 
 .jarry-glass {
@@ -143,10 +163,63 @@
 }
 
 .jarry-gradient-text {
-  background: linear-gradient(120deg, #fb7185 0%, #f472b6 50%, #e879f9 100%);
+  background: linear-gradient(120deg, var(--jt-accent1) 0%, var(--jt-accent2) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+/* Theme-aware helper classes */
+.jt-bar {
+  background-color: var(--jt-bar);
+}
+.jt-accent-bg {
+  background-image: linear-gradient(135deg, var(--jt-accent1), var(--jt-accent2));
+}
+.jt-code {
+  background-color: var(--jt-code);
+  transition: background-color 0.6s ease;
+}
+.jt-lang {
+  color: var(--jt-accent1-tint);
+}
+.jt-ring {
+  box-shadow: 0 0 0 2px var(--jt-accent1-a40);
+}
+.jt-icon-chip {
+  background-image: linear-gradient(135deg, var(--jt-accent1-a25), var(--jt-accent2-a25));
+  color: var(--jt-accent1-tint);
+}
+.jt-hover-accent {
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.jt-hover-accent:hover {
+  border-color: var(--jt-accent1-a40);
+  color: var(--jt-accent1-tint);
+}
+.jt-hover-text {
+  transition: color 0.2s ease;
+}
+.jt-hover-text:hover {
+  color: var(--jt-accent1-tint);
+}
+.jt-error-border {
+  border-color: rgba(244, 63, 94, 0.5) !important;
+}
+.jt-focus-within:focus-within {
+  border-color: var(--jt-accent1-a40);
+}
+.jt-dot-1 {
+  background: var(--jt-accent1);
+}
+.jt-dot-2 {
+  background: var(--jt-accent2);
+}
+.jt-dot-3 {
+  background: var(--jt-accent1-tint);
+}
+.jt-notice {
+  color: var(--jt-accent1-tint);
 }
 
 /* Scrollbar */
@@ -157,11 +230,11 @@
   background: transparent;
 }
 .jarry-scroll::-webkit-scrollbar-thumb {
-  background: rgba(251, 113, 133, 0.25);
+  background: var(--jt-accent1-a25);
   border-radius: 999px;
 }
 .jarry-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(251, 113, 133, 0.45);
+  background: var(--jt-accent1-a40);
 }
 
 /* Animations */
@@ -204,10 +277,10 @@
 @keyframes jarry-glow {
   0%,
   100% {
-    box-shadow: 0 0 24px rgba(244, 63, 94, 0.35);
+    box-shadow: 0 0 24px var(--jt-glow-a);
   }
   50% {
-    box-shadow: 0 0 44px rgba(232, 121, 249, 0.5);
+    box-shadow: 0 0 44px var(--jt-glow-b);
   }
 }
 .jarry-avatar-glow {
@@ -230,7 +303,7 @@
   margin-left: 2px;
   vertical-align: text-bottom;
   border-radius: 2px;
-  background: linear-gradient(120deg, #fb7185, #e879f9);
+  background: linear-gradient(120deg, var(--jt-accent1), var(--jt-accent2));
   animation: jarry-blink-caret 0.9s infinite;
 }
 
@@ -276,27 +349,27 @@
   font-size: 1.05rem;
 }
 .jarry-md strong {
-  color: #fda4af;
+  color: var(--jt-accent1-tint);
   font-weight: 700;
 }
 .jarry-md a {
-  color: #f9a8d4;
+  color: var(--jt-accent2-tint);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 .jarry-md a:hover {
-  color: #fbcfe8;
+  color: var(--jt-accent1-tint);
 }
 .jarry-md blockquote {
-  border-left: 3px solid rgba(251, 113, 133, 0.5);
+  border-left: 3px solid var(--jt-accent1-a40);
   padding-left: 0.8rem;
   margin: 0.5rem 0;
   color: rgba(255, 255, 255, 0.75);
   font-style: italic;
 }
 .jarry-md code:not(pre code) {
-  background: rgba(251, 113, 133, 0.14);
-  color: #fda4af;
+  background: var(--jt-accent1-a14);
+  color: var(--jt-accent1-tint);
   padding: 0.1rem 0.4rem;
   border-radius: 0.4rem;
   font-size: 0.875em;

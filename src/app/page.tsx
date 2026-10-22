@@ -11,6 +11,7 @@ import {
   Copy,
   Globe,
   Newspaper,
+  Palette,
   Send,
   ShieldCheck,
   Sparkles,
@@ -36,6 +37,93 @@ interface Msg {
 }
 
 const STORAGE_KEY = "jarry-chat-v1";
+
+interface Theme {
+  name: string;
+  bg: string;
+  accent1: string;
+  accent2: string;
+}
+
+const DEFAULT_THEME: Theme = {
+  name: "Rose Night",
+  bg: "#0d0a14",
+  accent1: "#f43f5e",
+  accent2: "#d946ef",
+};
+const THEME_KEY = "jarry-theme-v1";
+
+/* ---------- Color utilities ---------- */
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ];
+}
+
+function rgba(hex: string, a: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
+function mixHex(hex: string, other: string, ratio: number): string {
+  const [r1, g1, b1] = hexToRgb(hex);
+  const [r2, g2, b2] = hexToRgb(other);
+  const m = (x: number, y: number) => Math.round(x * (1 - ratio) + y * ratio);
+  const to = (n: number) => n.toString(16).padStart(2, "0");
+  return `#${to(m(r1, r2))}${to(m(g1, g2))}${to(m(b1, b2))}`;
+}
+
+function clampHex(value: unknown, fallback: string): string {
+  if (typeof value !== "string") return fallback;
+  let s = value.trim().replace(/^#/, "").toLowerCase();
+  if (/^[0-9a-f]{3}$/.test(s)) s = s.split("").map((c) => c + c).join("");
+  if (!/^[0-9a-f]{6}$/.test(s)) return fallback;
+  return `#${s}`;
+}
+
+function sanitizeTheme(raw: unknown): Theme {
+  const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const name =
+    typeof obj.name === "string" && obj.name.trim()
+      ? obj.name.trim().slice(0, 40)
+      : "নতুন থিম";
+  return {
+    name,
+    bg: clampHex(obj.bg, DEFAULT_THEME.bg),
+    accent1: clampHex(obj.accent1, DEFAULT_THEME.accent1),
+    accent2: clampHex(obj.accent2, DEFAULT_THEME.accent2),
+  };
+}
+
+function buildCssVars(t: Theme): Record<string, string> {
+  let bg = t.bg;
+  const [r, g, b] = hexToRgb(bg);
+  // Keep the background dark enough for white text to stay readable
+  if (0.2126 * r + 0.7152 * g + 0.0722 * b > 96) bg = mixHex(bg, "#000000", 0.55);
+  const { accent1: a1, accent2: a2 } = t;
+  return {
+    "--jt-bg": bg,
+    "--jt-bar": rgba(bg, 0.8),
+    "--jt-code": mixHex(bg, "#ffffff", 0.05),
+    "--jt-accent1": a1,
+    "--jt-accent2": a2,
+    "--jt-accent1-a14": rgba(a1, 0.14),
+    "--jt-accent1-a25": rgba(a1, 0.25),
+    "--jt-accent2-a25": rgba(a2, 0.25),
+    "--jt-accent1-a40": rgba(a1, 0.45),
+    "--jt-accent1-tint": mixHex(a1, "#ffffff", 0.5),
+    "--jt-accent2-tint": mixHex(a2, "#ffffff", 0.45),
+    "--jt-glow-a": rgba(a1, 0.35),
+    "--jt-glow-b": rgba(a2, 0.5),
+    "--jt-glow1": rgba(a1, 0.09),
+    "--jt-glow2": rgba(a2, 0.08),
+    "--jt-glow3": rgba(a2, 0.06),
+  };
+}
 
 const SUGGESTIONS = [
   {
@@ -63,6 +151,13 @@ const SUGGESTIONS = [
     label: "পাসওয়ার্ড সিকিউরিটি 🛡️",
     prompt:
       "পাসওয়ার্ড আর অ্যাকাউন্ট সিকিউর রাখার সেরা টিপসগুলো বলো।",
+    search: false,
+  },
+  {
+    icon: Palette,
+    label: "থিম বদলাও 🎨",
+    prompt:
+      "জ্যারি, তোমার থিম বদলে দাও! মনের মতো একটা সুন্দর নতুন রঙের থিম বানাও 😍",
     search: false,
   },
 ];
@@ -94,9 +189,9 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
     }
   };
   return (
-    <div className="my-2 overflow-hidden rounded-xl border border-white/10 bg-[#141018]">
+    <div className="jt-code my-2 overflow-hidden rounded-xl border border-white/10">
       <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.03] px-3 py-1.5">
-        <span className="font-mono text-[11px] uppercase tracking-wider text-rose-300/80">
+        <span className="jt-lang font-mono text-[11px] uppercase tracking-wider">
           {lang || "code"}
         </span>
         <button
@@ -169,7 +264,7 @@ function MessageBubble({ msg, streaming }: { msg: Msg; streaming?: boolean }) {
     return (
       <div className="jarry-fade-up flex justify-end">
         <div className="max-w-[85%] sm:max-w-[75%]">
-          <div className="rounded-2xl rounded-br-md bg-gradient-to-br from-rose-500 to-pink-600 px-4 py-2.5 text-[15px] leading-relaxed text-white shadow-lg shadow-rose-950/40">
+          <div className="jt-accent-bg rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] leading-relaxed text-white shadow-lg shadow-black/40">
             <p className="whitespace-pre-wrap break-words">{msg.content}</p>
           </div>
           <p className="mt-1 text-right text-[10px] text-white/35">
@@ -187,12 +282,12 @@ function MessageBubble({ msg, streaming }: { msg: Msg; streaming?: boolean }) {
         alt="Jarry AI"
         width={32}
         height={32}
-        className="mt-1 h-8 w-8 shrink-0 rounded-full ring-2 ring-rose-500/40"
+        className="jt-ring mt-1 h-8 w-8 shrink-0 rounded-full"
       />
       <div className="min-w-0 max-w-[88%] sm:max-w-[80%]">
         <div
           className={`jarry-glass rounded-2xl rounded-tl-md px-4 py-3 ${
-            msg.error ? "border-rose-500/40" : ""
+            msg.error ? "jt-error-border" : ""
           }`}
         >
           {msg.content ? (
@@ -202,9 +297,9 @@ function MessageBubble({ msg, streaming }: { msg: Msg; streaming?: boolean }) {
             </div>
           ) : streaming ? (
             <div className="flex items-center gap-1 py-1.5" aria-label="জ্যারি লিখছে">
-              <span className="jarry-dot h-2 w-2 rounded-full bg-rose-400" />
-              <span className="jarry-dot h-2 w-2 rounded-full bg-pink-400" />
-              <span className="jarry-dot h-2 w-2 rounded-full bg-fuchsia-400" />
+              <span className="jarry-dot jt-dot-1 h-2 w-2 rounded-full" />
+              <span className="jarry-dot jt-dot-2 h-2 w-2 rounded-full" />
+              <span className="jarry-dot jt-dot-3 h-2 w-2 rounded-full" />
             </div>
           ) : null}
         </div>
@@ -218,7 +313,7 @@ function MessageBubble({ msg, streaming }: { msg: Msg; streaming?: boolean }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 title={s.name}
-                className="inline-flex max-w-[220px] items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/70 transition hover:border-rose-400/40 hover:text-rose-200"
+                className="jt-hover-accent inline-flex max-w-[220px] items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/70"
               >
                 <Globe className="h-3 w-3 shrink-0" />
                 <span className="truncate">{s.host_name || s.name}</span>
@@ -232,7 +327,7 @@ function MessageBubble({ msg, streaming }: { msg: Msg; streaming?: boolean }) {
             <button
               onClick={onCopy}
               type="button"
-              className="text-[10px] text-white/30 transition hover:text-rose-300"
+              className="jt-hover-text text-[10px] text-white/30"
             >
               {copied ? "কপি হয়েছে ✓" : "কপি করো"}
             </button>
@@ -250,11 +345,63 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [webSearch, setWebSearch] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
+  const [themeNotice, setThemeNotice] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
   const abortRef = useRef<AbortController | null>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const applyCssVars = useCallback((t: Theme) => {
+    const root = document.documentElement;
+    const vars = buildCssVars(t);
+    for (const [k, v] of Object.entries(vars)) root.style.setProperty(k, v);
+  }, []);
+
+  // Load saved theme (and apply default immediately to avoid flash)
+  useEffect(() => {
+    let t = DEFAULT_THEME;
+    try {
+      const raw = localStorage.getItem(THEME_KEY);
+      if (raw) t = sanitizeTheme(JSON.parse(raw));
+    } catch {
+      /* ignore corrupt storage */
+    }
+    setTheme(t);
+    applyCssVars(t);
+  }, [applyCssVars]);
+
+  // Re-apply + persist on theme change
+  useEffect(() => {
+    applyCssVars(theme);
+    try {
+      localStorage.setItem(THEME_KEY, JSON.stringify(theme));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [theme, applyCssVars]);
+
+  const showThemeNotice = useCallback((text: string) => {
+    setThemeNotice(text);
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setThemeNotice(null), 4500);
+  }, []);
+
+  const handleThemeEvent = useCallback(
+    (raw: unknown) => {
+      const t = sanitizeTheme(raw);
+      setTheme(t);
+      showThemeNotice(`🎨 নতুন থিম: ${t.name}`);
+    },
+    [showThemeNotice]
+  );
+
+  const resetTheme = () => {
+    setTheme(DEFAULT_THEME);
+    showThemeNotice("🎨 থিম রিসেট হয়েছে — Rose Night");
+  };
 
   // Load saved history
   useEffect(() => {
@@ -366,6 +513,8 @@ export default function Home() {
                 setMessages((prev) =>
                   prev.map((m) => (m.id === aiId ? { ...m, sources: evt.sources } : m))
                 );
+              } else if (evt.type === "theme") {
+                handleThemeEvent(evt.theme);
               } else if (evt.type === "error") {
                 setMessages((prev) =>
                   prev.map((m) =>
@@ -412,7 +561,7 @@ export default function Home() {
         abortRef.current = null;
       }
     },
-    [input, busy, messages, webSearch]
+    [input, busy, messages, webSearch, handleThemeEvent]
   );
 
   const stop = () => abortRef.current?.abort();
@@ -439,7 +588,7 @@ export default function Home() {
   return (
     <div className="jarry-bg flex h-screen flex-col text-white">
       {/* Header */}
-      <header className="z-20 border-b border-white/10 bg-[#0d0a14]/80 backdrop-blur-xl">
+      <header className="jt-bar z-20 border-b border-white/10 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 px-3 py-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-3">
             <div className="jarry-avatar-glow shrink-0 rounded-full">
@@ -449,7 +598,7 @@ export default function Home() {
                 width={42}
                 height={42}
                 priority
-                className="h-[42px] w-[42px] rounded-full object-cover ring-2 ring-rose-500/60"
+                className="jt-ring h-[42px] w-[42px] rounded-full object-cover"
               />
             </div>
             <div className="min-w-0">
@@ -471,7 +620,7 @@ export default function Home() {
               title="অনলাইন সার্চ চালু/বন্ধ করো"
               className={`flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition ${
                 webSearch
-                  ? "bg-gradient-to-r from-rose-500 to-fuchsia-600 text-white shadow-md shadow-rose-900/40"
+                  ? "jt-accent-bg text-white shadow-md shadow-black/30"
                   : "jarry-glass text-white/70 hover:text-white"
               }`}
             >
@@ -480,17 +629,35 @@ export default function Home() {
               <span className="sm:hidden">সার্চ</span>
             </button>
             <button
+              onClick={resetTheme}
+              type="button"
+              title="থিম রিসেট করো"
+              aria-label="থিম রিসেট করো"
+              className="jarry-glass jt-hover-accent flex h-9 w-9 items-center justify-center rounded-full text-white/60"
+            >
+              <Palette className="h-4 w-4" />
+            </button>
+            <button
               onClick={clearChat}
               type="button"
               title="চ্যাট মুছে ফেলো"
               aria-label="চ্যাট মুছে ফেলো"
-              className="jarry-glass flex h-9 w-9 items-center justify-center rounded-full text-white/60 transition hover:border-rose-400/40 hover:text-rose-300"
+              className="jarry-glass jt-hover-accent flex h-9 w-9 items-center justify-center rounded-full text-white/60"
             >
               <Trash2 className="h-4 w-4" />
             </button>
           </div>
         </div>
       </header>
+
+      {/* Theme change notice */}
+      {themeNotice && (
+        <div className="pointer-events-none fixed left-1/2 top-[72px] z-30 -translate-x-1/2">
+          <div className="jarry-glass jt-notice jarry-fade-up rounded-full px-4 py-1.5 text-xs font-semibold shadow-lg shadow-black/30">
+            {themeNotice}
+          </div>
+        </div>
+      )}
 
       {/* Chat area */}
       <main
@@ -509,7 +676,7 @@ export default function Home() {
                   width={112}
                   height={112}
                   priority
-                  className="h-24 w-24 rounded-full object-cover ring-2 ring-rose-500/50 sm:h-28 sm:w-28"
+                  className="jt-ring h-24 w-24 rounded-full object-cover sm:h-28 sm:w-28"
                 />
               </div>
               <h2 className="font-bangla-display mt-5 text-2xl font-extrabold sm:text-3xl">
@@ -526,9 +693,9 @@ export default function Home() {
                     key={s.label}
                     onClick={() => send(s.prompt, { search: s.search })}
                     type="button"
-                    className="jarry-glass group flex items-center gap-3 rounded-xl px-4 py-3 text-left transition hover:border-rose-400/40 hover:bg-white/[0.07]"
+                    className="jarry-glass group flex items-center gap-3 rounded-xl px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.07]"
                   >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500/25 to-fuchsia-500/25 text-rose-300 transition group-hover:scale-110">
+                    <span className="jt-icon-chip flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition group-hover:scale-110">
                       <s.icon className="h-[18px] w-[18px]" />
                     </span>
                     <span className="min-w-0">
@@ -556,9 +723,9 @@ export default function Home() {
       </main>
 
       {/* Input area */}
-      <footer className="border-t border-white/10 bg-[#0d0a14]/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
+      <footer className="jt-bar border-t border-white/10 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
         <div className="mx-auto w-full max-w-3xl px-3 py-3 sm:px-4">
-          <div className="jarry-glass flex items-end gap-2 rounded-2xl p-2 transition focus-within:border-rose-400/40">
+          <div className="jarry-glass jt-focus-within flex items-end gap-2 rounded-2xl p-2 transition">
             <textarea
               ref={taRef}
               value={input}
@@ -587,7 +754,7 @@ export default function Home() {
                 disabled={!input.trim()}
                 type="button"
                 aria-label="পাঠাও"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-fuchsia-600 text-white shadow-lg shadow-rose-900/40 transition hover:opacity-90 disabled:opacity-30 disabled:shadow-none"
+                className="jt-accent-bg flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-lg shadow-black/30 transition hover:opacity-90 disabled:opacity-30 disabled:shadow-none"
               >
                 <Send className="h-[18px] w-[18px]" />
               </button>

@@ -21,3 +21,20 @@ Stage Summary:
 - Deliverable: runnable Next.js app "Jarry" (Bengali female AI chatbot) at src/app/page.tsx + src/app/api/chat/route.ts
 - Key decisions: SSE re-emit protocol for sources+delta streaming; safety guardrails inside system prompt (ethical hacking education only, refuses real-world attack instructions); Bengali-first UI; rose/fuchsia dark theme (no blue/indigo per rules)
 - All E2E tests passed in Agent Browser
+
+---
+Task ID: 2
+Agent: Main Agent (Z.ai)
+Task: Add AI-driven self theme modification — Jarry can change the app's color theme by herself when asked
+
+Work Log:
+- Backend (route.ts): added "থিম পরিবর্তনের বিশেষ ক্ষমতা" section to Jarry's system prompt — she outputs <theme>{"name","bg","accent1","accent2"}</theme> tag when user requests theme change; 10 preset themes (Rose Night, Emerald Dream, Ocean Wave, Sunset Glow, Royal Violet, Cyber Mint, Golden Night, Blood Moon, Candy Pink) listed for reference; rule: bg must be dark for readability
+- Backend: implemented normHex + parseThemeTag (validates/cleans hex, strips code fences) + makeThemeSplitter — streaming-safe state machine that extracts complete/partial <theme> tags from upstream deltas (case-insensitive, handles tags split across chunks via partial-prefix hold-back), emits {type:"theme"} SSE event, hides tag from delta text, exposes hasContent()
+- CSS (globals.css): converted entire Jarry theme to CSS custom properties (--jt-bg/bar/code/accent1/accent2/alpha variants/tints/glows) with :root defaults; added helper classes jt-bar, jt-accent-bg, jt-code, jt-lang, jt-ring, jt-icon-chip, jt-hover-accent, jt-hover-text, jt-error-border, jt-focus-within, jt-dot-1/2/3, jt-notice; 0.6s color transitions for smooth theme swap
+- Frontend (page.tsx): Theme type + DEFAULT_THEME (Rose Night); color utils hexToRgb/rgba/mixHex/clampHex/sanitizeTheme/buildCssVars (auto-darkens too-light backgrounds via luminance check); theme state persisted in localStorage (jarry-theme-v1) with CSS vars applied on documentElement; SSE handler case for theme events; 🎨 theme notice pill (fixed, auto-hide 4.5s); Palette reset button in header; new "থিম বদলাও 🎨" suggestion chip; replaced all fixed rose Tailwind classes with theme-var classes
+- Verification: lint 0 errors; Agent Browser live tests — Supernova theme applied (hot pink #ff006e), explicit "এমারেল্ড গ্রিন থিম দাও" turned whole app green (bg #081410, accents #10b981/#84cc16), localStorage saved correctly, reset button restored Rose Night (#f43f5e) with notice pill, no <theme> tag leaked into message text, no console/page errors, all API 200
+
+Stage Summary:
+- Feature complete: user can say any theme request in Banglish/Bengali and Jarry re-colors the entire app live (bg, buttons, bubbles, gradients, glows, scrollbar, code blocks), theme persists across reloads, manual reset available
+- Theme sanitizer guards readability (dark bg enforced) and validity (hex-clamped with fallbacks) on both server and client
+

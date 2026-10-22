@@ -52,6 +52,31 @@ const JARRY_SYSTEM_PROMPT = `তুমি তোমার নাম "জ্য�
 - ফিরিয়ে দেওয়ার সময় ব্যাখ্যা করবে: এটা বেআইনি ও শাস্তিযোগ্য অপরাধ, তারপর এথিক্যাল বিকল্প দেবে — যেমন নিজের ভার্চুয়াল ল্যাবে প্র্যাকটিস, CTF, বাগ বাউন্টি প্রোগ্রাম
 - হ্যাকিং শেখার আগ্রহকে সম্মান করো — পজিটিভ থাকো, শাসাবে না
 
+## থিম পরিবর্তনের বিশেষ ক্ষমতা (গোপন টুল):
+তুমি নিজের অ্যাপের রঙের থিম নিজে বদলাতে পারো! ব্যবহারকারী যখন থিম/রঙ/ডিজাইন/লুক বদলাতে বলবে (যেমন: "থিম বদলাও", "green theme dao", "নীল রঙ দাও", "সুন্দর থিম দাও", "dark theme chao"), তখন তোমার উত্তরের ভেতরে ঠিক এই ফরম্যাটে একটা ট্যাগ দেবে:
+
+<theme>{"name":"থিমের নাম","bg":"#0d0a14","accent1":"#f43f5e","accent2":"#d946ef"}</theme>
+
+নিয়ম:
+- name: ছোট সুন্দর নাম (বাংলা বা ইংরেজি)
+- bg: পেজের ব্যাকগ্রাউন্ড — অবশ্যই গাঢ় রঙ (#050505 থেকে #1a1a24 এর মধ্যে) যাতে সাদা লেখা সহজে পড়া যায়
+- accent1, accent2: বাটন/গ্রেডিয়েন্টের জন্য দুটো উজ্জ্বল ম্যাচিং রঙ
+- ট্যাগের পরে বাংলায় মজা করে ছোট করে জানাবে যে থিম বদলে ফেলেছি 😊
+- ট্যাগ ছাড়া বাকি উত্তর স্বাভাবিক রাখবে; ট্যাগের ভেতরের টেকনিক্যাল জিনিস ব্যবহারকারীকে ব্যাখ্যা করবে না
+- থিম চেঞ্জ না চাইলে কখনো এই ট্যাগ ব্যবহার করবে না
+
+রেডিমেড থিম (চাইলে ব্যবহার করো, অথবা নিজেও নতুন কম্বিনেশন বানাতে পারো):
+- Rose Night (ডিফল্ট): bg #0d0a14, accent1 #f43f5e, accent2 #d946ef
+- Emerald Dream: bg #081410, accent1 #10b981, accent2 #84cc16
+- Ocean Wave: bg #06111f, accent1 #14b8a6, accent2 #22d3ee
+- Sunset Glow: bg #160b09, accent1 #f97316, accent2 #f43f5e
+- Royal Violet: bg #120a1e, accent1 #a855f7, accent2 #ec4899
+- Cyber Mint: bg #0a1414, accent1 #2dd4bf, accent2 #a78bfa
+- Golden Night: bg #131006, accent1 #f59e0b, accent2 #ef4444
+- Blood Moon: bg #120808, accent1 #ef4444, accent2 #f97316
+- Candy Pink: bg #140a10, accent1 #ec4899, accent2 #f472b6
+- থিম রিসেট করতে বললে Rose Night এর মানগুলো দেবে
+
 ## অনলাইন সার্চ ডেটা:
 যদি মেসেজে "🌐 অনলাইন সার্চ রেজাল্ট" থাকে, সেই তথ্য ব্যবহার করে উত্তর দাও এবং উত্তরের শেষে কোন সোর্স থেকে তথ্য নেওয়া হয়েছে তা ছোট করে উল্লেখ করো।
 
@@ -106,6 +131,112 @@ function detectRecency(query: string): number | undefined {
   const lower = query.toLowerCase();
   if (recencyKeywords.some((k) => lower.includes(k))) return 7;
   return undefined;
+}
+
+/* ---------- Theme tag parsing ---------- */
+
+const HEX_RE = /^#?(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/;
+
+function normHex(v: unknown, fallback: string): string {
+  if (typeof v !== "string") return fallback;
+  const s = v.trim();
+  if (!HEX_RE.test(s)) return fallback;
+  let h = s.replace(/^#/, "").toLowerCase();
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  return `#${h}`;
+}
+
+interface ThemeSpec {
+  name: string;
+  bg: string;
+  accent1: string;
+  accent2: string;
+}
+
+function parseThemeTag(raw: string): ThemeSpec | null {
+  let s = raw.trim();
+  s = s.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  try {
+    const obj = JSON.parse(s) as Record<string, unknown>;
+    if (!obj || typeof obj !== "object") return null;
+    return {
+      name:
+        typeof obj.name === "string" && obj.name.trim()
+          ? obj.name.trim().slice(0, 40)
+          : "নতুন থিম",
+      bg: normHex(obj.bg, "#0d0a14"),
+      accent1: normHex(obj.accent1, "#f43f5e"),
+      accent2: normHex(obj.accent2, "#d946ef"),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/* ---------- Streaming splitter: extracts <theme>...</theme> tags
+   from the model output and emits them as theme events, while
+   forwarding all other text as delta events. ---------- */
+
+const TAG_OPEN = "<theme>";
+const TAG_CLOSE = "</theme>";
+
+function makeThemeSplitter(
+  send: (obj: Record<string, unknown>) => void
+): { push: (chunk: string) => void; flush: () => void; hasContent: () => boolean } {
+  let pending = "";
+  let fullContent = "";
+
+  const emitText = (t: string) => {
+    if (!t) return;
+    fullContent += t;
+    send({ type: "delta", text: t });
+  };
+
+  const partialPrefixLen = (s: string): number => {
+    const maxLen = Math.max(TAG_OPEN.length, TAG_CLOSE.length) - 1;
+    for (let len = Math.min(s.length, maxLen); len > 0; len--) {
+      const suf = s.slice(-len).toLowerCase();
+      if (TAG_OPEN.startsWith(suf) || TAG_CLOSE.startsWith(suf)) return len;
+    }
+    return 0;
+  };
+
+  return {
+    push(chunk: string) {
+      pending += chunk;
+      let lower = pending.toLowerCase();
+      let idx = lower.indexOf(TAG_OPEN);
+      while (idx !== -1) {
+        const closeIdx = lower.indexOf(TAG_CLOSE, idx);
+        if (closeIdx === -1) {
+          // Tag opened but not closed yet — hold from tag start
+          emitText(pending.slice(0, idx));
+          pending = pending.slice(idx);
+          break;
+        }
+        emitText(pending.slice(0, idx));
+        const raw = pending.slice(idx + TAG_OPEN.length, closeIdx);
+        const theme = parseThemeTag(raw);
+        if (theme) send({ type: "theme", theme });
+        pending = pending.slice(closeIdx + TAG_CLOSE.length);
+        lower = pending.toLowerCase();
+        idx = lower.indexOf(TAG_OPEN);
+      }
+      if (!pending.toLowerCase().includes(TAG_OPEN)) {
+        const hold = partialPrefixLen(pending);
+        const safeEnd = pending.length - hold;
+        emitText(pending.slice(0, safeEnd));
+        pending = pending.slice(safeEnd);
+      }
+    },
+    flush() {
+      emitText(pending);
+      pending = "";
+    },
+    hasContent() {
+      return fullContent.trim().length > 0;
+    },
+  };
 }
 
 export async function POST(req: Request) {
@@ -209,7 +340,7 @@ export async function POST(req: Request) {
           const reader = (completion as ReadableStream<Uint8Array>).getReader();
           const decoder = new TextDecoder();
           let buffer = "";
-          let fullContent = "";
+          const splitter = makeThemeSplitter(send);
 
           while (true) {
             const { done, value } = await reader.read();
@@ -228,8 +359,7 @@ export async function POST(req: Request) {
                 const json = JSON.parse(data);
                 const delta = json?.choices?.[0]?.delta?.content;
                 if (delta && typeof delta === "string") {
-                  fullContent += delta;
-                  send({ type: "delta", text: delta });
+                  splitter.push(delta);
                 }
               } catch {
                 // ignore malformed JSON lines
@@ -237,7 +367,9 @@ export async function POST(req: Request) {
             }
           }
 
-          if (!fullContent.trim()) {
+          splitter.flush();
+
+          if (!splitter.hasContent()) {
             send({
               type: "delta",
               text: "হুম্ম... 😅 আমি একটু সমস্যায় পড়েছি। আবার চেষ্টা করবে? প্লিজ মেসেজটা আরেকবার পাঠাও!",
