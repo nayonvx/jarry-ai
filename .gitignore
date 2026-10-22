@@ -64,3 +64,6 @@ server.log
 /tests
 /worklog.md
 /public/generated
+/.zscripts
+/.z-ai-config
+/Caddyfile
