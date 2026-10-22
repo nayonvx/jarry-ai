@@ -1,0 +1,604 @@
+"use client";
+
+import Image from "next/image";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Markdown, { type Components } from "react-markdown";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import {
+  Check,
+  Code2,
+  Copy,
+  Globe,
+  Newspaper,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  Square,
+  Trash2,
+} from "lucide-react";
+
+interface Source {
+  name: string;
+  url: string;
+  host_name: string;
+  snippet: string;
+  date: string;
+}
+
+interface Msg {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  time: number;
+  sources?: Source[];
+  error?: boolean;
+}
+
+const STORAGE_KEY = "jarry-chat-v1";
+
+const SUGGESTIONS = [
+  {
+    icon: Code2,
+    label: "কোডিং শেখাও 💻",
+    prompt:
+      "জ্যারি, আমি প্রোগ্রামিং শেখা শুরু করতে চাই। কোন ভাষা দিয়ে শুরু করব আর কীভাবে? একটা সহজ রোডম্যাপ দাও।",
+    search: false,
+  },
+  {
+    icon: ShieldCheck,
+    label: "এথিক্যাল হ্যাকিং 🔐",
+    prompt:
+      "এথিক্যাল হ্যাকিং কীভাবে শিখব? শুরু করার জন্য কী কী টুল, ল্যাব আর রোডম্যাপ দরকার বলো।",
+    search: false,
+  },
+  {
+    icon: Newspaper,
+    label: "আজকের টেক নিউজ 📰",
+    prompt: "আজকের সবচেয়ে বড় টেকনোলজি নিউজগুলো কী কী?",
+    search: true,
+  },
+  {
+    icon: Sparkles,
+    label: "পাসওয়ার্ড সিকিউরিটি 🛡️",
+    prompt:
+      "পাসওয়ার্ড আর অ্যাকাউন্ট সিকিউর রাখার সেরা টিপসগুলো বলো।",
+    search: false,
+  },
+];
+
+function uid() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function fmtTime(t: number) {
+  try {
+    return new Date(t).toLocaleTimeString("bn-BD", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+}
+
+function CodeBlock({ code, lang }: { code: string; lang: string }) {
+  const [copied, setCopied] = useState(false);
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+  return (
+    <div className="my-2 overflow-hidden rounded-xl border border-white/10 bg-[#141018]">
+      <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.03] px-3 py-1.5">
+        <span className="font-mono text-[11px] uppercase tracking-wider text-rose-300/80">
+          {lang || "code"}
+        </span>
+        <button
+          onClick={onCopy}
+          className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] text-white/60 transition hover:bg-white/10 hover:text-white"
+          aria-label="কোড কপি করো"
+          type="button"
+        >
+          {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+          {copied ? "কপি হয়েছে" : "কপি"}
+        </button>
+      </div>
+      <SyntaxHighlighter
+        language={lang || "text"}
+        style={oneDark}
+        wrapLongLines
+        customStyle={{
+          margin: 0,
+          background: "transparent",
+          fontSize: "12.5px",
+          padding: "12px 14px",
+        }}
+        codeTagProps={{
+          style: {
+            fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+          },
+        }}
+      >
+        {code}
+      </SyntaxHighlighter>
+    </div>
+  );
+}
+
+const mdComponents: Components = {
+  pre({ children }) {
+    const el = children as React.ReactElement<{
+      className?: string;
+      children?: React.ReactNode;
+    }>;
+    const cls = el?.props?.className || "";
+    const lang = /language-(\w+)/.exec(cls)?.[1] || "";
+    const raw = String(el?.props?.children ?? "").replace(/\n$/, "");
+    return <CodeBlock code={raw} lang={lang} />;
+  },
+  a({ href, children }) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer">
+        {children}
+      </a>
+    );
+  },
+};
+
+function MessageBubble({ msg, streaming }: { msg: Msg; streaming?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const isUser = msg.role === "user";
+
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(msg.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+
+  if (isUser) {
+    return (
+      <div className="jarry-fade-up flex justify-end">
+        <div className="max-w-[85%] sm:max-w-[75%]">
+          <div className="rounded-2xl rounded-br-md bg-gradient-to-br from-rose-500 to-pink-600 px-4 py-2.5 text-[15px] leading-relaxed text-white shadow-lg shadow-rose-950/40">
+            <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+          </div>
+          <p className="mt-1 text-right text-[10px] text-white/35">
+            {fmtTime(msg.time)}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="jarry-fade-up flex gap-2.5">
+      <Image
+        src="/jarry-avatar.png"
+        alt="Jarry AI"
+        width={32}
+        height={32}
+        className="mt-1 h-8 w-8 shrink-0 rounded-full ring-2 ring-rose-500/40"
+      />
+      <div className="min-w-0 max-w-[88%] sm:max-w-[80%]">
+        <div
+          className={`jarry-glass rounded-2xl rounded-tl-md px-4 py-3 ${
+            msg.error ? "border-rose-500/40" : ""
+          }`}
+        >
+          {msg.content ? (
+            <div className="jarry-md text-[15px] text-white/90">
+              <Markdown components={mdComponents}>{msg.content}</Markdown>
+              {streaming && <span className="jarry-caret" />}
+            </div>
+          ) : streaming ? (
+            <div className="flex items-center gap-1 py-1.5" aria-label="জ্যারি লিখছে">
+              <span className="jarry-dot h-2 w-2 rounded-full bg-rose-400" />
+              <span className="jarry-dot h-2 w-2 rounded-full bg-pink-400" />
+              <span className="jarry-dot h-2 w-2 rounded-full bg-fuchsia-400" />
+            </div>
+          ) : null}
+        </div>
+
+        {msg.sources && msg.sources.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {msg.sources.map((s, i) => (
+              <a
+                key={i}
+                href={s.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={s.name}
+                className="inline-flex max-w-[220px] items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/70 transition hover:border-rose-400/40 hover:text-rose-200"
+              >
+                <Globe className="h-3 w-3 shrink-0" />
+                <span className="truncate">{s.host_name || s.name}</span>
+              </a>
+            ))}
+          </div>
+        )}
+
+        {!streaming && msg.content && (
+          <div className="mt-1 flex items-center gap-2">
+            <button
+              onClick={onCopy}
+              type="button"
+              className="text-[10px] text-white/30 transition hover:text-rose-300"
+            >
+              {copied ? "কপি হয়েছে ✓" : "কপি করো"}
+            </button>
+            <span className="text-[10px] text-white/25">{fmtTime(msg.time)}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function Home() {
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [webSearch, setWebSearch] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const pinnedRef = useRef(true);
+  const abortRef = useRef<AbortController | null>(null);
+  const taRef = useRef<HTMLTextAreaElement>(null);
+
+  // Load saved history
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) setMessages(parsed);
+      }
+    } catch {
+      /* ignore corrupt storage */
+    }
+    setHydrated(true);
+  }, []);
+
+  // Persist history
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-60)));
+    } catch {
+      /* storage full/unavailable */
+    }
+  }, [messages, hydrated]);
+
+  const scrollToBottom = useCallback((force = false) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (force || pinnedRef.current) el.scrollTop = el.scrollHeight;
+  }, []);
+
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 90;
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  const autoResize = () => {
+    const ta = taRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = `${Math.min(ta.scrollHeight, 150)}px`;
+  };
+
+  const send = useCallback(
+    async (text?: string, opts?: { search?: boolean }) => {
+      const content = (text ?? input).trim();
+      if (!content || busy) return;
+      const useSearch = opts?.search ?? webSearch;
+      if (opts?.search) setWebSearch(true);
+
+      const userMsg: Msg = { id: uid(), role: "user", content, time: Date.now() };
+      const aiId = uid();
+      const aiMsg: Msg = { id: aiId, role: "assistant", content: "", time: Date.now() };
+      const history = [...messages, userMsg];
+
+      setMessages([...history, aiMsg]);
+      setInput("");
+      setBusy(true);
+      pinnedRef.current = true;
+      if (taRef.current) taRef.current.style.height = "auto";
+
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
+
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: history.map((m) => ({ role: m.role, content: m.content })),
+            webSearch: useSearch,
+          }),
+          signal: ctrl.signal,
+        });
+
+        if (!res.ok || !res.body) {
+          const errData = await res.json().catch(() => null);
+          throw new Error(errData?.error || "সংযোগে সমস্যা হয়েছে!");
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const parts = buf.split("\n\n");
+          buf = parts.pop() || "";
+
+          for (const part of parts) {
+            const line = part.trim();
+            if (!line.startsWith("data:")) continue;
+            try {
+              const evt = JSON.parse(line.slice(5).trim());
+              if (evt.type === "delta") {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === aiId ? { ...m, content: m.content + evt.text } : m
+                  )
+                );
+              } else if (evt.type === "sources") {
+                setMessages((prev) =>
+                  prev.map((m) => (m.id === aiId ? { ...m, sources: evt.sources } : m))
+                );
+              } else if (evt.type === "error") {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === aiId
+                      ? { ...m, content: m.content || evt.message, error: !m.content }
+                      : m
+                  )
+                );
+              } else if (evt.type === "done") {
+                setMessages((prev) =>
+                  prev.map((m) => (m.id === aiId ? { ...m, time: m.time || Date.now() } : m))
+                );
+              }
+            } catch {
+              /* skip malformed event */
+            }
+          }
+        }
+      } catch (err: unknown) {
+        const e = err as Error;
+        if (e?.name === "AbortError") {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiId
+                ? { ...m, content: m.content || "পাঠানো থামিয়ে দিয়েছি 😊" }
+                : m
+            )
+          );
+        } else {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiId
+                ? {
+                    ...m,
+                    content: m.content || e?.message || "কিছু একটা সমস্যা হয়েছে!",
+                    error: !m.content,
+                  }
+                : m
+            )
+          );
+        }
+      } finally {
+        setBusy(false);
+        abortRef.current = null;
+      }
+    },
+    [input, busy, messages, webSearch]
+  );
+
+  const stop = () => abortRef.current?.abort();
+
+  const clearChat = () => {
+    if (busy) abortRef.current?.abort();
+    setMessages([]);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  };
+
+  const isEmpty = messages.length === 0;
+
+  return (
+    <div className="jarry-bg flex h-screen flex-col text-white">
+      {/* Header */}
+      <header className="z-20 border-b border-white/10 bg-[#0d0a14]/80 backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 px-3 py-3 sm:px-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="jarry-avatar-glow shrink-0 rounded-full">
+              <Image
+                src="/jarry-avatar.png"
+                alt="Jarry AI avatar"
+                width={42}
+                height={42}
+                priority
+                className="h-[42px] w-[42px] rounded-full object-cover ring-2 ring-rose-500/60"
+              />
+            </div>
+            <div className="min-w-0">
+              <h1 className="font-bangla-display text-xl font-bold leading-tight">
+                <span className="jarry-gradient-text">Jarry</span>
+              </h1>
+              <p className="flex items-center gap-1.5 text-[11px] text-white/50">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                <span className="truncate">অনলাইন • তোমার বাংলা AI বন্ধু 🌸</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={() => setWebSearch((v) => !v)}
+              type="button"
+              aria-pressed={webSearch}
+              title="অনলাইন সার্চ চালু/বন্ধ করো"
+              className={`flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition ${
+                webSearch
+                  ? "bg-gradient-to-r from-rose-500 to-fuchsia-600 text-white shadow-md shadow-rose-900/40"
+                  : "jarry-glass text-white/70 hover:text-white"
+              }`}
+            >
+              <Globe className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">অনলাইন সার্চ</span>
+              <span className="sm:hidden">সার্চ</span>
+            </button>
+            <button
+              onClick={clearChat}
+              type="button"
+              title="চ্যাট মুছে ফেলো"
+              aria-label="চ্যাট মুছে ফেলো"
+              className="jarry-glass flex h-9 w-9 items-center justify-center rounded-full text-white/60 transition hover:border-rose-400/40 hover:text-rose-300"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Chat area */}
+      <main
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="jarry-scroll flex-1 overflow-y-auto px-3 py-4 sm:px-4"
+        aria-live="polite"
+      >
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+          {isEmpty ? (
+            <div className="jarry-fade-up flex flex-col items-center pt-8 text-center sm:pt-12">
+              <div className="jarry-avatar-glow rounded-full">
+                <Image
+                  src="/jarry-avatar.png"
+                  alt="Jarry AI"
+                  width={112}
+                  height={112}
+                  priority
+                  className="h-24 w-24 rounded-full object-cover ring-2 ring-rose-500/50 sm:h-28 sm:w-28"
+                />
+              </div>
+              <h2 className="font-bangla-display mt-5 text-2xl font-extrabold sm:text-3xl">
+                হ্যালো! আমি <span className="jarry-gradient-text">জ্যারি</span> 🌸
+              </h2>
+              <p className="mt-2.5 max-w-md text-[15px] leading-relaxed text-white/60">
+                তোমার বাংলা AI বন্ধু! কোডিং 💻, সাইবার সিকিউরিটি 🔐, অনলাইন তথ্য 🌐 —
+                যা জানতে চাও, বলো। বাংলাতেই কথা হবে 😊
+              </p>
+
+              <div className="mt-7 grid w-full max-w-xl grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s.label}
+                    onClick={() => send(s.prompt, { search: s.search })}
+                    type="button"
+                    className="jarry-glass group flex items-center gap-3 rounded-xl px-4 py-3 text-left transition hover:border-rose-400/40 hover:bg-white/[0.07]"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500/25 to-fuchsia-500/25 text-rose-300 transition group-hover:scale-110">
+                      <s.icon className="h-[18px] w-[18px]" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-white/90">
+                        {s.label}
+                      </span>
+                      <span className="block text-[11px] text-white/45">
+                        {s.search ? "অনলাইন সার্চ লাগবে 🌐" : "জ্যারির কাছে জিজ্ঞেস করো"}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            messages.map((m, i) => (
+              <MessageBubble
+                key={m.id}
+                msg={m}
+                streaming={busy && m.role === "assistant" && i === messages.length - 1}
+              />
+            ))
+          )}
+        </div>
+      </main>
+
+      {/* Input area */}
+      <footer className="border-t border-white/10 bg-[#0d0a14]/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
+        <div className="mx-auto w-full max-w-3xl px-3 py-3 sm:px-4">
+          <div className="jarry-glass flex items-end gap-2 rounded-2xl p-2 transition focus-within:border-rose-400/40">
+            <textarea
+              ref={taRef}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                autoResize();
+              }}
+              onKeyDown={onKeyDown}
+              rows={1}
+              placeholder="জ্যারিকে কিছু লিখো... (বাংলা / বাংলিশ / English)"
+              aria-label="মেসেজ লিখো"
+              className="jarry-scroll max-h-[150px] min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-[15px] text-white placeholder:text-white/35 focus:outline-none"
+            />
+            {busy ? (
+              <button
+                onClick={stop}
+                type="button"
+                aria-label="থামাও"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white transition hover:bg-white/20"
+              >
+                <Square className="h-4 w-4 fill-current" />
+              </button>
+            ) : (
+              <button
+                onClick={() => send()}
+                disabled={!input.trim()}
+                type="button"
+                aria-label="পাঠাও"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-fuchsia-600 text-white shadow-lg shadow-rose-900/40 transition hover:opacity-90 disabled:opacity-30 disabled:shadow-none"
+              >
+                <Send className="h-[18px] w-[18px]" />
+              </button>
+            )}
+          </div>
+          <p className="mt-2 text-center text-[11px] leading-relaxed text-white/30">
+            জ্যারি AI দ্বারা 💕 — মাঝে মাঝে ভুল হতে পারে, গুরুত্বপূর্ণ তথ্য যাচাই করে নিও ·
+            Enter = পাঠাও · Shift+Enter = নতুন লাইন
+          </p>
+        </div>
+      </footer>
+    </div>
+  );
+}
